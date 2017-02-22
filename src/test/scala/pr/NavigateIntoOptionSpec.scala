@@ -22,20 +22,17 @@ object Beta {
 }
 
 case class Gamma(beta: Option[Beta] = None)
-
 object Gamma {
   val betaI: Iso[Gamma, Option[Beta]] = GenIso[Gamma, Option[Beta]]
   val betaP: Prism[Gamma, Beta] = Prism[Gamma, Beta](_.beta)(a => Gamma(Some(a)))
 }
 
 class NavigateIntoOptionSpec extends FunSuite with Discipline {
-
   implicit val arbitraryAlpha: Arbitrary[Alpha] = Arbitrary(arbitrary[String].map(Alpha.apply))
   implicit val arbitraryBeta: Arbitrary[Beta] = Arbitrary(arbitrary[Alpha].map(Beta.apply))
   implicit val arbitraryGamma: Arbitrary[Gamma] = Arbitrary(arbitrary[Beta].map(b => Gamma(Some(b))))
   implicit val arbitraryAlphaToAlpha: Arbitrary[Alpha => Alpha] = Arbitrary(arbitrary[String => String].map(Alpha.textI.modify))
   implicit val arbitraryBetaToBeta: Arbitrary[Beta => Beta] = Arbitrary(arbitrary[Alpha => Alpha].map(Beta.alphaI.modify))
-
   implicit val arbitraryOptionBeta: Arbitrary[Option[Beta]] = Arbitrary(Gen.option(arbitrary[Beta]))
 
   implicit val arbitraryOptionBetaToOptionBeta: Arbitrary[Option[Beta] => Option[Beta]] = Arbitrary(
@@ -65,9 +62,11 @@ class NavigateIntoOptionSpec extends FunSuite with Discipline {
   }
 
   test("Navigates into Optional") {
-    (Gamma.betaP composeIso Beta.alphaI composeIso Alpha.textI).set("foo")(Gamma(None)) shouldBe Gamma(None)
-    (Gamma.betaP composeIso Beta.alphaI composeIso Alpha.textI).set("foo")(Gamma(Some(Beta()))) shouldBe Gamma(Some(Beta(Alpha("foo"))))
+    val navigateToText: Prism[Gamma, String] = Gamma.betaP composeIso Beta.alphaI composeIso Alpha.textI
 
-    (Gamma.betaI.set(Some(Beta())) andThen (Gamma.betaP composeIso Beta.alphaI composeIso Alpha.textI).set("foo")) (Gamma()) shouldBe Gamma(Some(Beta(Alpha("foo"))))
+    navigateToText.set("foo")(Gamma(None)) shouldBe Gamma(None)
+    navigateToText.set("foo")(Gamma(Some(Beta()))) shouldBe Gamma(Some(Beta(Alpha("foo"))))
+
+    (Gamma.betaI.set(Some(Beta())) andThen navigateToText.set("foo")) (Gamma()) shouldBe Gamma(Some(Beta(Alpha("foo"))))
   }
 }
