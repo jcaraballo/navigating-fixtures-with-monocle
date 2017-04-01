@@ -72,7 +72,6 @@ class NavigateIntoOptionSpec extends FunSuite with Discipline {
     // So we make it work by turning any intermediate None in the descending path into an appropriate default value and then we can use
     // navigateToText to alter the element deep down
     (Gamma.betaI.modify(_.orElse(Some(Beta()))) andThen navigateToText.set("foo")) (Gamma()) shouldBe Gamma(Some(Beta(Alpha("foo"))))
-    //noinspection RedundantDefaultArgument
     (Gamma.betaI.modify(_.orElse(Some(Beta()))) andThen navigateToText.modify(_ + "_foo")) (Gamma(Some(Beta(Alpha("content"))))) shouldBe Gamma(Some(Beta(Alpha("content_foo"))))
     (Gamma.betaI.modify(_.orElse(Some(Beta()))) andThen navigateToText.modify(_ + "_foo")) (Gamma(Some(Beta(Alpha("text"))))) shouldBe Gamma(Some(Beta(Alpha("text_foo"))))
   }
