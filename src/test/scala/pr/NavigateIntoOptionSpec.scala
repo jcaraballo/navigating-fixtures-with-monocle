@@ -64,9 +64,16 @@ class NavigateIntoOptionSpec extends FunSuite with Discipline {
   test("Navigates into Optional") {
     val navigateToText: Prism[Gamma, String] = Gamma.betaP composeIso Beta.alphaI composeIso Alpha.textI
 
-    navigateToText.set("foo")(Gamma(None)) shouldBe Gamma(None)
+    // navigateToText allows us to alter the element deep down...
     navigateToText.set("foo")(Gamma(Some(Beta()))) shouldBe Gamma(Some(Beta(Alpha("foo"))))
+    // but by itself it won't do anything if anything intermediate in the descending path is a None :(
+    navigateToText.set("foo")(Gamma(None)) shouldBe Gamma(None)
 
-    (Gamma.betaI.set(Some(Beta())) andThen navigateToText.set("foo")) (Gamma()) shouldBe Gamma(Some(Beta(Alpha("foo"))))
+    // So we make it work by turning any intermediate None in the descending path into an appropriate default value and then we can use
+    // navigateToText to alter the element deep down
+    (Gamma.betaI.modify(_.orElse(Some(Beta()))) andThen navigateToText.set("foo")) (Gamma()) shouldBe Gamma(Some(Beta(Alpha("foo"))))
+    //noinspection RedundantDefaultArgument
+    (Gamma.betaI.modify(_.orElse(Some(Beta()))) andThen navigateToText.modify(_ + "_foo")) (Gamma(Some(Beta(Alpha("content"))))) shouldBe Gamma(Some(Beta(Alpha("content_foo"))))
+    (Gamma.betaI.modify(_.orElse(Some(Beta()))) andThen navigateToText.modify(_ + "_foo")) (Gamma(Some(Beta(Alpha("text"))))) shouldBe Gamma(Some(Beta(Alpha("text_foo"))))
   }
 }
