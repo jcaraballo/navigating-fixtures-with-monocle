@@ -74,5 +74,20 @@ class NavigateIntoOptionSpec extends FunSuite with Discipline {
     (Gamma.betaI.modify(_.orElse(Some(Beta()))) andThen navigateToText.set("foo")) (Gamma()) shouldBe Gamma(Some(Beta(Alpha("foo"))))
     (Gamma.betaI.modify(_.orElse(Some(Beta()))) andThen navigateToText.modify(_ + "_foo")) (Gamma(Some(Beta(Alpha("content"))))) shouldBe Gamma(Some(Beta(Alpha("content_foo"))))
     (Gamma.betaI.modify(_.orElse(Some(Beta()))) andThen navigateToText.modify(_ + "_foo")) (Gamma(Some(Beta(Alpha("text"))))) shouldBe Gamma(Some(Beta(Alpha("text_foo"))))
+
+
+    // Julien's suggestion works awesomely for this example
+    import scalaz.std.option.optionInstance
+
+    val navigateToText2: Prism[Gamma, Option[String]] =
+      Gamma.betaI composePrism Beta.alphaI.asPrism.below[Option] composePrism Alpha.textI.asPrism.below[Option]
+
+    // when we want to set the inner value regardless:
+    navigateToText2.set(Some("foo"))(Gamma(Some(Beta()))) shouldBe Gamma(Some(Beta(Alpha("foo"))))
+    navigateToText2.set(Some("foo"))(Gamma(None)) shouldBe Gamma(Some(Beta(Alpha("foo"))))
+
+    // when we want to modify the inner value we also have to provide a default value in case it is not defined ("" in this case)
+    navigateToText2.modify(_.orElse(Some("")).map(_ + "_foo"))(Gamma(Some(Beta(Alpha("content"))))) shouldBe Gamma(Some(Beta(Alpha("content_foo"))))
+    navigateToText2.modify(_.orElse(Some("")).map(_ + "_foo"))(Gamma(None)) shouldBe Gamma(Some(Beta(Alpha("_foo"))))
   }
 }
