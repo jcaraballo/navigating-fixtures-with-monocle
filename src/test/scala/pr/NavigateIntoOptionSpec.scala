@@ -1,8 +1,8 @@
 package pr
 
 import monocle.law.discipline.{IsoTests, PrismTests}
-import monocle.macros.GenIso
-import monocle.{Iso, Prism}
+import monocle.macros.{GenIso, GenLens}
+import monocle.{Iso, Lens, Optional, Prism}
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.FunSuite
@@ -25,6 +25,11 @@ case class Gamma(beta: Option[Beta] = None)
 object Gamma {
   val betaI: Iso[Gamma, Option[Beta]] = GenIso[Gamma, Option[Beta]]
   val betaP: Prism[Gamma, Beta] = Prism[Gamma, Beta](_.beta)(a => Gamma(Some(a)))
+}
+
+case class Outer(beta: Option[Beta], text: String)
+object Outer {
+  val betaL: Lens[Outer, Option[Beta]] = GenLens[Outer](_.beta)
 }
 
 class NavigateIntoOptionSpec extends FunSuite with Discipline {
@@ -61,7 +66,7 @@ class NavigateIntoOptionSpec extends FunSuite with Discipline {
     (Beta.alphaI composeIso Alpha.textI).set("foo")(Beta()) shouldBe Beta(Alpha("foo"))
   }
 
-  test("Navigates into Optional") {
+  test("Navigates into optional unique child and beyond") {
     val navigateToText: Prism[Gamma, String] = Gamma.betaP composeIso Beta.alphaI composeIso Alpha.textI
 
     // navigateToText allows us to alter the element deep down...
@@ -89,5 +94,20 @@ class NavigateIntoOptionSpec extends FunSuite with Discipline {
     // when we want to modify the inner value we also have to provide a default value in case it is not defined ("" in this case)
     navigateToText2.modify(_.orElse(Some("")).map(_ + "_foo"))(Gamma(Some(Beta(Alpha("content"))))) shouldBe Gamma(Some(Beta(Alpha("content_foo"))))
     navigateToText2.modify(_.orElse(Some("")).map(_ + "_foo"))(Gamma(None)) shouldBe Gamma(Some(Beta(Alpha("_foo"))))
+  }
+
+  // And when the parent with the optional child has other children it also works on a lens
+  test("Navigates from a parent into an optional attribute amongst other ones and beyond"){
+
+    import scalaz.std.option.optionInstance
+
+    val navigateToInnerText: Optional[Outer, Option[String]] =
+      Outer.betaL composePrism Beta.alphaI.asPrism.below[Option] composePrism Alpha.textI.asPrism.below[Option]
+
+    navigateToInnerText.set(Some("foo"))(Outer(None, "Hi")) shouldBe Outer(Some(Beta(Alpha("foo"))), "Hi")
+    navigateToInnerText.set(Some("foo"))(Outer(Some(Beta(Alpha("content"))), "Hi")) shouldBe Outer(Some(Beta(Alpha("foo"))), "Hi")
+
+    navigateToInnerText.modify(_.orElse(Some("")).map(_ + "_foo"))(Outer(None, "Hi")) shouldBe Outer(Some(Beta(Alpha("_foo"))), "Hi")
+    navigateToInnerText.modify(_.orElse(Some("")).map(_ + "_foo"))(Outer(Some(Beta(Alpha("content"))), "Hi")) shouldBe Outer(Some(Beta(Alpha("content_foo"))), "Hi")
   }
 }
